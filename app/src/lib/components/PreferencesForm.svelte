@@ -43,7 +43,7 @@
 			<Toggle
 				id="allowForcePush"
 				bind:checked={allowForcePushing}
-				on:change={async () => await setWithForcePush(allowForcePushing)}
+				on:click={async () => await setWithForcePush(allowForcePushing)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -57,7 +57,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				bind:checked={omitCertificateCheck}
-				on:change={async () => await setOmitCertificateCheck(omitCertificateCheck)}
+				on:click={async () => await setOmitCertificateCheck(omitCertificateCheck)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
