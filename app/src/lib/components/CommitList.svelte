@@ -2,11 +2,14 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitLines from './CommitLines.svelte';
 	import { Project } from '$lib/backend/projects';
+	import Button from '$lib/components/Button.svelte';
 	import ReorderDropzone from '$lib/components/CommitList/ReorderDropzone.svelte';
+	import QuickActionMenu from '$lib/components/QuickActionMenu.svelte';
 	import { ReorderDropzoneIndexer } from '$lib/dragging/reorderDropzoneIndexer';
 	import { getAvatarTooltip } from '$lib/utils/avatar';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import {
 		getIntegratedCommits,
 		getLocalCommits,
@@ -31,6 +34,7 @@
 	const integratedCommits = getIntegratedCommits();
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
+	const branchController = getContext(BranchController);
 
 	$: hasShadowColumn =
 		$integratedCommits.length == 0 &&
@@ -70,6 +74,14 @@
 		if (hasUnknownCommits) return 'upstream';
 		return 'remote';
 	}
+
+	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
+		if (!$branch || !$baseBranch) {
+			console.error('Unable to insert commit');
+			return;
+		}
+		branchController.insertBlankCommit($branch.id, commitId, location == 'above' ? -1 : 1);
+	}
 </script>
 
 {#if hasCommits || hasUnknownCommits}
@@ -108,12 +120,24 @@
 				</CommitCard>
 			{/each}
 		{/if}
-		<ReorderDropzone
-			index={reorderDropzoneIndexer.topDropzoneIndex}
-			indexer={reorderDropzoneIndexer}
-		/>
+		<QuickActionMenu
+			offset={$localCommits.length == 0 &&
+			$remoteCommits.length == 0 &&
+			$integratedCommits.length == 0
+				? 0
+				: 0.75}
+			padding={1}
+		>
+			<Button style="ghost" size="tag" on:click={() => insertBlankCommit($branch.head, 'above')}
+				>Insert blank commit</Button
+			>
+		</QuickActionMenu>
 		<!-- LOCAL COMMITS -->
 		{#if $localCommits.length > 0}
+			<ReorderDropzone
+				index={reorderDropzoneIndexer.topDropzoneIndex}
+				indexer={reorderDropzoneIndexer}
+			/>
 			{#each $localCommits as commit, idx (commit.id)}
 				<CommitCard
 					{commit}
@@ -150,6 +174,14 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
+				<QuickActionMenu
+					padding={1}
+					offset={$remoteCommits.length > 0 && idx + 1 == $localCommits.length ? 0.25 : 0}
+				>
+					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
+						>Insert blank commit</Button
+					>
+				</QuickActionMenu>
 			{/each}
 		{/if}
 		<!-- REMOTE COMMITS -->
@@ -187,6 +219,11 @@
 					index={reorderDropzoneIndexer.dropzoneIndexBelowCommit(commit.id)}
 					indexer={reorderDropzoneIndexer}
 				/>
+				<QuickActionMenu padding={1}>
+					<Button style="ghost" size="tag" on:click={() => insertBlankCommit(commit.id, 'below')}
+						>Insert blank commit</Button
+					>
+				</QuickActionMenu>
 			{/each}
 		{/if}
 		<!-- INTEGRATED COMMITS -->
