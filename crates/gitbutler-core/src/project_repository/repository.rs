@@ -227,7 +227,10 @@ impl Repository {
                 Ok(())
             }
             Err(err) => match err.code() {
-                git2::ErrorCode::NotFound => Ok(()),
+                git2::ErrorCode::NotFound => {
+                    println!("not found!!!!");
+                    Ok(())
+                }
                 _ => Err(err),
             },
         }

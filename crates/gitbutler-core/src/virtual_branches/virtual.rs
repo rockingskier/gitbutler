@@ -1445,7 +1445,8 @@ pub fn delete_branch(
     branch_id: BranchId,
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
-    let Some(branch) = vb_state.try_branch(branch_id)? else {
+    let Some(branch) = dbg!(vb_state.try_branch(branch_id))? else {
+        println!("I did nothing");
         return Ok(());
     };
     _ = project_repository
@@ -1464,18 +1465,18 @@ pub fn delete_branch(
 }
 
 fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
-    let mut applied_branches = vb_state
+    let mut virtual_branches = vb_state
         .list_branches()
         .context("failed to list branches")?
         .into_iter()
         .collect::<Vec<_>>();
 
-    if applied_branches.is_empty() {
+    if virtual_branches.is_empty() {
         println!("no applied branches");
         return Ok(());
     }
 
-    if applied_branches
+    if virtual_branches
         .iter()
         .any(|b| b.selected_for_changes.is_some())
     {
@@ -1483,10 +1484,10 @@ fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
         return Ok(());
     }
 
-    applied_branches.sort_by_key(|branch| branch.order);
+    virtual_branches.sort_by_key(|branch| branch.order);
 
-    applied_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
-    vb_state.set_branch(applied_branches[0].clone())?;
+    virtual_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
+    vb_state.set_branch(virtual_branches[0].clone())?;
     Ok(())
 }
 
@@ -3253,179 +3254,6 @@ fn cherry_rebase_group(
         .id();
 
     Ok(new_head_id)
-}
-
-pub fn cherry_pick(
-    project_repository: &project_repository::Repository,
-    branch_id: BranchId,
-    target_commit_id: git2::Oid,
-) -> Result<Option<git2::Oid>> {
-    project_repository.assure_unconflicted()?;
-
-    let vb_state = project_repository.project().virtual_branches();
-
-    let mut branch = vb_state
-        .get_branch(branch_id)
-        .context("failed to read branch")?;
-
-    let target_commit = project_repository
-        .repo()
-        .find_commit(target_commit_id)
-        .map_err(|err| match err {
-            err if err.code() == git2::ErrorCode::NotFound => {
-                anyhow!("commit {target_commit_id} not found ")
-            }
-            err => err.into(),
-        })?;
-
-    let branch_head_commit = project_repository
-        .repo()
-        .find_commit(branch.head)
-        .context("failed to find branch tree")?;
-
-    let default_target = vb_state.get_default_target()?;
-
-    // if any other branches are applied, unapply them
-    let applied_branches = vb_state
-        .list_branches()
-        .context("failed to read virtual branches")?
-        .into_iter()
-        .collect::<Vec<_>>();
-
-    let integration_commit_id = get_workspace_head(&vb_state, project_repository)?;
-
-    let (applied_statuses, _) = get_applied_status(
-        project_repository,
-        &integration_commit_id,
-        &default_target.sha,
-        applied_branches,
-    )?;
-
-    let branch_files = applied_statuses
-        .iter()
-        .find(|(b, _)| b.id == branch_id)
-        .map(|(_, f)| f)
-        .context("branch status not found")?;
-
-    // create a wip commit. we'll use it to offload cherrypick conflicts calculation to libgit.
-    let wip_commit = {
-        let wip_tree_oid = write_tree(project_repository, &branch.head, branch_files)?;
-        let wip_tree = project_repository
-            .repo()
-            .find_tree(wip_tree_oid)
-            .context("failed to find tree")?;
-
-        let signature = git2::Signature::now("GitButler", "gitbutler@gitbutler.com")
-            .context("failed to make gb signature")?;
-        let oid = project_repository
-            .repo()
-            .commit_with_signature(
-                None,
-                &signature,
-                &signature,
-                "wip cherry picking commit",
-                &wip_tree,
-                &[&branch_head_commit],
-                None,
-            )
-            .context("failed to commit wip work")?;
-        project_repository
-            .repo()
-            .find_commit(oid)
-            .context("failed to find wip commit")?
-    };
-
-    let mut cherrypick_index = project_repository
-        .repo()
-        .cherrypick_commit(&target_commit, &wip_commit, 0, None)
-        .context("failed to cherry pick")?;
-
-    // unapply other branches
-    for other_branch in applied_statuses
-        .iter()
-        .filter(|(b, _)| b.id != branch.id)
-        .map(|(b, _)| b)
-    {
-        convert_to_real_branch(project_repository, other_branch.id, Default::default())
-            .context("failed to unapply branch")?;
-    }
-
-    let commit_oid = if cherrypick_index.has_conflicts() {
-        // checkout the conflicts
-        project_repository
-            .repo()
-            .checkout_index_builder(&mut cherrypick_index)
-            .allow_conflicts()
-            .conflict_style_merge()
-            .force()
-            .checkout()
-            .context("failed to checkout conflicts")?;
-
-        // mark conflicts
-        let conflicts = cherrypick_index
-            .conflicts()
-            .context("failed to get conflicts")?;
-        let mut merge_conflicts = Vec::new();
-        for path in conflicts.flatten() {
-            if let Some(ours) = path.our {
-                let path = std::str::from_utf8(&ours.path)
-                    .context("failed to convert path")?
-                    .to_string();
-                merge_conflicts.push(path);
-            }
-        }
-        conflicts::mark(project_repository, &merge_conflicts, Some(branch.head))?;
-
-        None
-    } else {
-        let merge_tree_oid = cherrypick_index
-            .write_tree_to(project_repository.repo())
-            .context("failed to write merge tree")?;
-        let merge_tree = project_repository
-            .repo()
-            .find_tree(merge_tree_oid)
-            .context("failed to find merge tree")?;
-
-        let branch_head_commit = project_repository
-            .repo()
-            .find_commit(branch.head)
-            .context("failed to find branch head commit")?;
-
-        let change_id = target_commit.change_id();
-        let commit_oid = project_repository
-            .repo()
-            .commit_with_signature(
-                None,
-                &target_commit.author(),
-                &target_commit.committer(),
-                &target_commit.message_bstr().to_str_lossy(),
-                &merge_tree,
-                &[&branch_head_commit],
-                change_id.as_deref(),
-            )
-            .context("failed to create commit")?;
-
-        // checkout final_tree into the working directory
-        project_repository
-            .repo()
-            .checkout_tree_builder(&merge_tree)
-            .force()
-            .remove_untracked()
-            .checkout()
-            .context("failed to checkout final tree")?;
-
-        // update branch status
-        branch.head = commit_oid;
-        branch.updated_timestamp_ms = crate::time::now_ms();
-        vb_state.set_branch(branch.clone())?;
-
-        Some(commit_oid)
-    };
-
-    super::integration::update_gitbutler_integration(&vb_state, project_repository)
-        .context("failed to update gitbutler integration")?;
-
-    Ok(commit_oid)
 }
 
 /// squashes a commit from a virtual branch into its parent.

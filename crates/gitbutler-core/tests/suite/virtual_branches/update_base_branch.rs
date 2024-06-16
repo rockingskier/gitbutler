@@ -795,15 +795,6 @@ mod applied_branch {
         )
         .unwrap();
 
-        let branch_count = controller
-            .list_virtual_branches(*project_id)
-            .await
-            .unwrap()
-            .0
-            .len();
-
-        println!("branch count: {}", branch_count);
-
         {
             // merge branch remotely
             let branch = controller
@@ -817,17 +808,13 @@ mod applied_branch {
 
         repository.fetch();
 
+        // The conflicted branch should be removed
         {
-            dbg!(controller.update_base_branch(*project_id).await.unwrap());
-
-            // removes integrated commit, leaves non commited work as is
+            controller.update_base_branch(*project_id).await.unwrap();
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            assert_eq!(branches.len(), 1);
-            assert_eq!(branches[0].id, branch_id);
-            assert!(!branches[0].active);
-            assert!(branches[0].commits.is_empty());
-            assert!(!branches[0].files.is_empty());
+            dbg!(&branches);
+            assert_eq!(branches.len(), 0);
         }
 
         {

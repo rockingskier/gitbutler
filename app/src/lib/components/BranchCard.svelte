@@ -17,12 +17,7 @@
 	import Resizer from '$lib/components/Resizer.svelte';
 	import { projectAiGenAutoBranchNamingEnabled } from '$lib/config/config';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import {
-		DraggableCommit,
-		DraggableFile,
-		DraggableHunk,
-		DraggableRemoteCommit
-	} from '$lib/dragging/draggables';
+	import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import { dropzone } from '$lib/dragging/dropzone';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
@@ -114,14 +109,6 @@
 		branchController.moveCommit(branch.id, data.commit.id);
 	}
 
-	function acceptCherrypick(data: any) {
-		return data instanceof DraggableRemoteCommit && data.branchId === branch.id;
-	}
-
-	function onCherrypicked(data: DraggableRemoteCommit) {
-		branchController.cherryPick(branch.id, data.remoteCommit.id);
-	}
-
 	function acceptBranchDrop(data: any) {
 		if (data instanceof DraggableHunk && data.branchId !== branch.id) {
 			return !data.hunk.locked;
@@ -203,8 +190,6 @@
 					/>
 					<PullRequestCard />
 					<!-- DROPZONES -->
-					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
-					<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 					<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 
 					<div class="card">
@@ -218,13 +203,6 @@
 								disabled: isUnapplied
 							}}
 							use:dropzone={{
-								hover: 'cherrypick-dz-hover',
-								active: 'cherrypick-dz-active',
-								accepts: acceptCherrypick,
-								onDrop: onCherrypicked,
-								disabled: isUnapplied
-							}}
-							use:dropzone={{
 								hover: 'lane-dz-hover',
 								active: 'lane-dz-active',
 								accepts: acceptBranchDrop,
@@ -232,7 +210,6 @@
 								disabled: isUnapplied
 							}}
 						>
-							<DropzoneOverlay class="cherrypick-dz-marker" label="Apply here" />
 							<DropzoneOverlay class="lane-dz-marker" label="Move here" />
 							<DropzoneOverlay class="move-commit-dz-marker" label="Move here" />
 

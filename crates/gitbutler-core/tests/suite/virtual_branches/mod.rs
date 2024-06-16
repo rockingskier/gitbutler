@@ -64,7 +64,6 @@ impl Test {
 
 mod amend;
 mod apply_virtual_branch;
-mod cherry_pick;
 mod create_commit;
 mod create_virtual_branch_from_branch;
 mod delete_virtual_branch;

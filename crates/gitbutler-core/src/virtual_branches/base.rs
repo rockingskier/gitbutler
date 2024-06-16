@@ -366,6 +366,7 @@ pub fn update_base_branch<'repo>(
             .map(|(branch, _)| branch)
             .map(
                 |mut branch: branch::Branch| -> Result<Option<branch::Branch>> {
+                    println!("1");
                     let branch_tree = repo.find_tree(branch.tree)?;
 
                     let branch_head_commit = repo.find_commit(branch.head).context(format!(
@@ -416,12 +417,14 @@ pub fn update_base_branch<'repo>(
                         .context(format!("failed to merge trees for branch {}", branch.id))?;
 
                     if branch_tree_merge_index.has_conflicts() {
+                        println!("CONFLICTS DETECTED");
                         // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                         let unapplied_real_branch = convert_to_real_branch(
                             project_repository,
                             branch.id,
                             Default::default(),
-                        )?;
+                        )
+                        .expect("Failed to convert to real branch");
                         unapplied_branch_names.push(unapplied_real_branch);
 
                         return Ok(Some(branch));
@@ -450,13 +453,15 @@ pub fn update_base_branch<'repo>(
                         ))?;
 
                     if branch_head_merge_index.has_conflicts() {
+                        println!("\n\nConflicts detected!!!\n");
                         // branch commits conflict with new target, make sure the branch is
                         // unapplied. conflicts witll be dealt with when applying it back.
                         let unapplied_real_branch = convert_to_real_branch(
                             project_repository,
                             branch.id,
                             Default::default(),
-                        )?;
+                        )
+                        .expect("2 failed to convert to real branch");
                         unapplied_branch_names.push(unapplied_real_branch);
 
                         return Ok(Some(branch));
