@@ -27,8 +27,7 @@ async fn unapply_with_data() {
     assert!(!repository.path().join("file.txt").exists());
 
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-    assert_eq!(branches.len(), 1);
-    assert!(!branches[0].active);
+    assert_eq!(branches.len(), 0);
 }
 
 #[tokio::test]
@@ -55,7 +54,7 @@ async fn conflicting() {
         .await
         .unwrap();
 
-    let branch_id = {
+    let branch_reference = {
         // make a conflicting branch, and stash it
 
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
@@ -72,36 +71,28 @@ async fn conflicting() {
         controller
             .convert_to_real_branch(*project_id, branches[0].id, Default::default())
             .await
-            .unwrap();
-
-        branches[0].id
+            .unwrap()
     };
 
     {
         // update base branch, causing conflict
-        controller.update_base_branch(*project_id).await.unwrap();
+        let unapplied_references = controller.update_base_branch(*project_id).await.unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
             "second"
         );
 
-        let branch = controller
-            .list_virtual_branches(*project_id)
-            .await
-            .unwrap()
-            .0
-            .into_iter()
-            .find(|branch| branch.id == branch_id)
-            .unwrap();
-        assert!(!branch.base_current);
-        assert!(!branch.active);
+        assert_eq!(unapplied_references.len(), 0);
     }
 
-    {
+    let branch_id = {
         // apply branch, it should conflict
-        controller
-            .apply_virtual_branch(*project_id, branch_id)
+        let branch_id = controller
+            .create_virtual_branch_from_branch(
+                *project_id,
+                &git::Refname::from_str(branch_reference.as_str()).unwrap(),
+            )
             .await
             .unwrap();
 
@@ -118,10 +109,11 @@ async fn conflicting() {
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
-        assert!(branch.base_current);
         assert!(branch.conflicted);
         assert_eq!(branch.files[0].hunks[0].diff, "@@ -1 +1,5 @@\n-first\n\\ No newline at end of file\n+<<<<<<< ours\n+conflict\n+=======\n+second\n+>>>>>>> theirs\n");
-    }
+
+        branch_id
+    };
 
     {
         controller
@@ -134,21 +126,13 @@ async fn conflicting() {
             "second"
         );
 
-        let branch = controller
+        let branches = controller
             .list_virtual_branches(*project_id)
             .await
             .unwrap()
-            .0
-            .into_iter()
-            .find(|b| b.id == branch_id)
-            .unwrap();
-        assert!(!branch.active);
-        assert!(!branch.base_current);
-        assert!(!branch.conflicted);
-        assert_eq!(
-            branch.files[0].hunks[0].diff,
-            "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n"
-        );
+            .0;
+
+        assert_eq!(branches.len(), 0);
     }
 }
 

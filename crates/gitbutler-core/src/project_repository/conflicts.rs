@@ -97,28 +97,20 @@ pub fn conflicting_files(repository: &Repository) -> Result<Vec<String>> {
 /// Check if `path` is conflicting in `repository`, or if `None`, check if there is any conflict.
 // TODO(ST): Should this not rather check the conflicting state in the index?
 pub fn is_conflicting(repository: &Repository, path: Option<&Path>) -> Result<bool> {
-    let conflicts_path = repository.repo().path().join("conflicts");
-    if !conflicts_path.exists() {
-        return Ok(false);
+    let mut status_options = git2::StatusOptions::new();
+    status_options.include_untracked(true);
+
+    if let Some(path) = path {
+        status_options.pathspec(path);
     }
 
-    let file = std::fs::File::open(conflicts_path)?;
-    let reader = std::io::BufReader::new(file);
-    // TODO(ST): This shouldn't work on UTF8 strings.
-    let mut files = reader.lines().map_ok(PathBuf::from);
-    if let Some(pathname) = path {
-        // check if pathname is one of the lines in conflicts_path file
-        for line in files {
-            let line = line?;
+    let statuses = repository.repo().statuses(Some(&mut status_options))?;
 
-            if line == pathname {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    } else {
-        Ok(files.next().transpose().map(|x| x.is_some())?)
-    }
+    let conflicted = statuses
+        .iter()
+        .any(|status| status.status().intersects(git2::Status::CONFLICTED));
+
+    Ok(conflicted)
 }
 
 // is this project still in a resolving conflict state?

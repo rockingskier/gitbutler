@@ -282,6 +282,7 @@ pub fn apply_branch(
             for branch in get_status_by_branch(project_repository, Some(&target_commit.id()))?
                 .0
                 .into_iter()
+                .filter(|(branch, _)| branch.id != branch_id)
                 .map(|(branch, _)| branch)
             {
                 convert_to_real_branch(project_repository, branch.id, Default::default())?;
@@ -1445,7 +1446,7 @@ pub fn delete_branch(
     branch_id: BranchId,
 ) -> Result<()> {
     let vb_state = project_repository.project().virtual_branches();
-    let Some(branch) = dbg!(vb_state.try_branch(branch_id))? else {
+    let Some(branch) = vb_state.try_branch(branch_id)? else {
         println!("I did nothing");
         return Ok(());
     };

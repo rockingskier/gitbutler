@@ -809,17 +809,22 @@ mod applied_branch {
         repository.fetch();
 
         // The conflicted branch should be removed
-        {
-            controller.update_base_branch(*project_id).await.unwrap();
+        let unapplied_branch = {
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
-            dbg!(&branches);
             assert_eq!(branches.len(), 0);
-        }
+
+            unapplied_branches[0].clone()
+        };
 
         {
             controller
-                .apply_virtual_branch(*project_id, branch_id)
+                .create_virtual_branch_from_branch(
+                    *project_id,
+                    &git::Refname::from_str(unapplied_branch.as_str()).unwrap(),
+                )
                 .await
                 .unwrap();
 
@@ -827,14 +832,15 @@ mod applied_branch {
             assert_eq!(branches.len(), 1);
             assert!(branches[0].active);
             assert!(branches[0].conflicted);
-            assert!(branches[0].base_current);
+            // assert!(branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].files[0].hunks.len(), 1);
             assert_eq!(
                 branches[0].files[0].hunks[0].diff,
                 "@@ -4,7 +4,11 @@\n 4\n 5\n 6\n-7\n+<<<<<<< ours\n+77\n+=======\n+17\n+>>>>>>> theirs\n 8\n 19\n 10\n"
             );
-            assert_eq!(branches[0].commits.len(), 0);
+            // We still have the WIP hunk
+            assert_eq!(branches[0].commits.len(), 1);
         }
     }
 

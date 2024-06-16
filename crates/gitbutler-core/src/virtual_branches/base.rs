@@ -396,6 +396,7 @@ pub fn update_base_branch<'repo>(
                                 &branch_tree,
                             )?;
                             if non_commited_files.is_empty() {
+                                println!("WFTFFF");
                                 // if there are no commited files, then the branch is fully merged
                                 // and we can delete it.
                                 vb_state.remove_branch(branch.id)?;
@@ -427,7 +428,7 @@ pub fn update_base_branch<'repo>(
                         .expect("Failed to convert to real branch");
                         unapplied_branch_names.push(unapplied_real_branch);
 
-                        return Ok(Some(branch));
+                        return Ok(None);
                     }
 
                     let branch_merge_index_tree_oid =
@@ -464,7 +465,7 @@ pub fn update_base_branch<'repo>(
                         .expect("2 failed to convert to real branch");
                         unapplied_branch_names.push(unapplied_real_branch);
 
-                        return Ok(Some(branch));
+                        return Ok(None);
                     }
 
                     // branch commits do not conflict with new target, so lets merge them
