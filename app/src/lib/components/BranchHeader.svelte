@@ -3,20 +3,17 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLanePopupMenu from './BranchLanePopupMenu.svelte';
 	import PullRequestButton from './PullRequestButton.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BranchService } from '$lib/branches/service';
 	import { clickOutside } from '$lib/clickOutside';
 	import Button from '$lib/components/Button.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { GitHubService } from '$lib/github/service';
-	import { showError } from '$lib/notifications/toasts';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { BaseBranch, Branch } from '$lib/vbranches/types';
 	import type { PullRequest } from '$lib/github/types';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import { goto } from '$app/navigation';
 
 	export let uncommittedChanges = 0;
 	export let isUnapplied = false;
@@ -25,7 +22,6 @@
 	const branchController = getContext(BranchController);
 	const githubService = getContext(GitHubService);
 	const branchStore = getContextStore(Branch);
-	const project = getContext(Project);
 	const branchService = getContext(BranchService);
 	const baseBranch = getContextStore(BaseBranch);
 
@@ -35,8 +31,6 @@
 
 	let meatballButton: HTMLDivElement;
 	let visible = false;
-	let isApplying = false;
-	let isDeleting = false;
 	let isLoading: boolean;
 	let isTargetBranchAnimated = false;
 
@@ -211,77 +205,32 @@
 				</div>
 
 				<div class="relative">
-					{#if isUnapplied}
-						<Button
-							style="ghost"
-							outline
-							help="Deletes the local virtual branch (only)"
-							icon="bin-small"
-							loading={isDeleting}
-							on:click={async () => {
-								isDeleting = true;
-								try {
-									await branchController.deleteBranch(branch.id);
-									goto(`/${project.id}/board`);
-								} catch (err) {
-									showError('Failed to delete branch', err);
-									console.error(err);
-								} finally {
-									isDeleting = false;
-								}
-							}}
-						>
-							Delete
-						</Button>
-						<Button
-							style="ghost"
-							outline
-							help="Restores these changes into your working directory"
-							icon="plus-small"
-							loading={isApplying}
-							on:click={async () => {
-								isApplying = true;
-								try {
-									await branchController.applyBranch(branch.id);
-									goto(`/${project.id}/board`);
-								} catch (err) {
-									showError('Failed to apply branch', err);
-									console.error(err);
-								} finally {
-									isApplying = false;
-								}
-							}}
-						>
-							Apply
-						</Button>
-					{:else}
-						<div class="header__buttons">
-							{#if !hasPullRequest}
-								<PullRequestButton
-									on:click={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
-									loading={isLoading}
-								/>
-							{/if}
-							<Button
-								element={meatballButton}
-								style="ghost"
-								outline
-								icon="kebab"
-								on:mousedown={() => {
-									visible = !visible;
-								}}
+					<div class="header__buttons">
+						{#if !hasPullRequest}
+							<PullRequestButton
+								on:click={async (e) => await createPr({ draft: e.detail.action === 'draft' })}
+								loading={isLoading}
 							/>
-							<div
-								class="branch-popup-menu"
-								use:clickOutside={{
-									trigger: meatballButton,
-									handler: () => (visible = false)
-								}}
-							>
-								<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
-							</div>
+						{/if}
+						<Button
+							element={meatballButton}
+							style="ghost"
+							outline
+							icon="kebab"
+							on:mousedown={() => {
+								visible = !visible;
+							}}
+						/>
+						<div
+							class="branch-popup-menu"
+							use:clickOutside={{
+								trigger: meatballButton,
+								handler: () => (visible = false)
+							}}
+						>
+							<BranchLanePopupMenu {isUnapplied} bind:visible on:action />
 						</div>
-					{/if}
+					</div>
 				</div>
 			</div>
 		</div>

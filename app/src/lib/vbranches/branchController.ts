@@ -140,15 +140,6 @@ export class BranchController {
 		}
 	}
 
-	async applyBranch(branchId: string) {
-		try {
-			// TODO: make this optimistic again.
-			await invoke<void>('apply_branch', { projectId: this.projectId, branch: branchId });
-		} catch (err) {
-			showError('Failed to apply branch', err);
-		}
-	}
-
 	async unapplyHunk(hunk: Hunk) {
 		const ownership = `${hunk.filePath}:${hunk.id}-${hunk.hash}`;
 		try {
