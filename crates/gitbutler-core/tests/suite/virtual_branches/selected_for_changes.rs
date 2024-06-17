@@ -359,12 +359,15 @@ async fn applying_first_branch() {
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
 
-    controller
+    let reference_name = controller
         .convert_to_real_branch(*project_id, branches[0].id, Default::default())
         .await
         .unwrap();
+
+    let refname = git::Refname::from_str(reference_name.as_str()).unwrap();
+
     controller
-        .apply_virtual_branch(*project_id, branches[0].id)
+        .create_virtual_branch_from_branch(*project_id, &refname)
         .await
         .unwrap();
 

@@ -3359,7 +3359,7 @@ pub fn create_virtual_branch_from_branch(
     project_repository: &project_repository::Repository,
     upstream: &git::Refname,
     user: Option<&users::User>,
-) -> Result<BranchId> {
+) -> Result<(BranchId, Option<Marker>)> {
     pub fn apply_branch(
         project_repository: &project_repository::Repository,
         branch_id: BranchId,
@@ -3698,14 +3698,14 @@ pub fn create_virtual_branch_from_branch(
     project_repository.add_branch_reference(&branch)?;
 
     match apply_branch(project_repository, branch.id, user) {
-        Ok(_) => Ok(branch.id),
+        Ok(_) => Ok((branch.id, None)),
         Err(err)
             if err
                 .downcast_ref()
                 .map_or(false, |marker: &Marker| *marker == Marker::ProjectConflict) =>
         {
             // if branch conflicts with the workspace, it's ok. keep it unapplied
-            Ok(branch.id)
+            Ok((branch.id, Some(Marker::ProjectConflict)))
         }
         Err(err) => Err(err).context("failed to apply"),
     }

@@ -81,7 +81,8 @@ pub mod commands {
         let branch_id = handle
             .state::<Controller>()
             .create_virtual_branch_from_branch(project_id, &branch)
-            .await?;
+            .await?
+            .0;
         emit_vbranches(&handle, project_id).await;
         Ok(branch_id)
     }

@@ -113,7 +113,7 @@ async fn resolve_conflict_flow() {
         .await
         .unwrap();
 
-    let branch1_id = {
+    let mut branch1_id = {
         // make a branch that conflicts with the remote branch, but doesn't know about it yet
         let branch1_id = controller
             .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
@@ -129,23 +129,29 @@ async fn resolve_conflict_flow() {
         branch1_id
     };
 
-    {
+    let reference_name = {
         // fetch remote
-        controller.update_base_branch(*project_id).await.unwrap();
+        let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+        assert_eq!(unapplied_branches.len(), 1);
 
         // there is a conflict now, so the branch should be inactive
         let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(!branches[0].active);
-    }
+
+        unapplied_branches[0].clone()
+    };
+
+    let refname = git::Refname::from_str(reference_name.as_str()).unwrap();
 
     {
         // when we apply conflicted branch, it has conflict
-        controller
-            .apply_virtual_branch(*project_id, branch1_id)
+        branch1_id = controller
+            .create_virtual_branch_from_branch(*project_id, &refname)
             .await
-            .unwrap();
+            .unwrap()
+            .0;
 
         let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
         assert_eq!(branches.len(), 1);

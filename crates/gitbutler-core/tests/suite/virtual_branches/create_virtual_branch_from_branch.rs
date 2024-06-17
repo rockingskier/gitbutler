@@ -55,7 +55,8 @@ async fn integration() {
     let branch_id = controller
         .create_virtual_branch_from_branch(*project_id, &branch_name)
         .await
-        .unwrap();
+        .unwrap()
+        .0;
 
     {
         // add a commit
@@ -156,7 +157,8 @@ async fn no_conflicts() {
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
-        .unwrap();
+        .unwrap()
+        .0;
 
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);
@@ -205,7 +207,8 @@ async fn conflicts_with_uncommited() {
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
-        .unwrap();
+        .unwrap()
+        .0;
     let new_branch = controller
         .list_virtual_branches(*project_id)
         .await
@@ -264,7 +267,8 @@ async fn conflicts_with_commited() {
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
-        .unwrap();
+        .unwrap()
+        .0;
     let new_branch = controller
         .list_virtual_branches(*project_id)
         .await
@@ -369,7 +373,8 @@ async fn from_state_remote_branch() {
             &"refs/remotes/origin/branch".parse().unwrap(),
         )
         .await
-        .unwrap();
+        .unwrap()
+        .0;
 
     let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
     assert_eq!(branches.len(), 1);

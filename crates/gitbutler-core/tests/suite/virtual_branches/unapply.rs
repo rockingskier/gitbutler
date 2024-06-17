@@ -94,7 +94,8 @@ async fn conflicting() {
                 &git::Refname::from_str(branch_reference.as_str()).unwrap(),
             )
             .await
-            .unwrap();
+            .unwrap()
+            .0;
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),

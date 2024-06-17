@@ -11,6 +11,7 @@ use tokio::{sync::Semaphore, task::JoinHandle};
 
 use super::{
     branch::{BranchId, BranchOwnershipClaims},
+    errors::Marker,
     target, target_to_base_branch, BaseBranch, NameConflitResolution, RemoteBranchFile,
     VirtualBranchesHandle,
 };
@@ -102,7 +103,7 @@ impl Controller {
         &self,
         project_id: ProjectId,
         branch: &git::Refname,
-    ) -> Result<BranchId> {
+    ) -> Result<(BranchId, Option<Marker>)> {
         self.inner(project_id)
             .await
             .create_virtual_branch_from_branch(project_id, branch)
@@ -472,7 +473,7 @@ impl ControllerInner {
         &self,
         project_id: ProjectId,
         branch: &git::Refname,
-    ) -> Result<BranchId> {
+    ) -> Result<(BranchId, Option<Marker>)> {
         let _permit = self.semaphore.acquire().await;
 
         self.with_verify_branch(project_id, |project_repository, user| {

@@ -28,7 +28,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        let mut branch_id = {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
             let branch_id = controller
                 .create_virtual_branch(*project_id, &branch::BranchCreateRequest::default())
@@ -40,9 +40,10 @@ mod applied_branch {
             branch_id
         };
 
-        {
+        let reference_name = {
             // fetch remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let unapplied_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(unapplied_branches.len(), 1);
 
             // should stash conflicting branch
 
@@ -53,14 +54,19 @@ mod applied_branch {
             assert!(!branches[0].base_current);
             assert_eq!(branches[0].files.len(), 1);
             assert_eq!(branches[0].commits.len(), 0);
-        }
+
+            unapplied_branches[0].clone()
+        };
+
+        let refname = git::Refname::from_str(reference_name.as_str()).unwrap();
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .apply_virtual_branch(*project_id, branch_id)
+            branch_id = controller
+                .create_virtual_branch_from_branch(*project_id, &refname)
                 .await
-                .unwrap();
+                .unwrap()
+                .0;
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
@@ -100,7 +106,7 @@ mod applied_branch {
             .await
             .unwrap();
 
-        let branch_id = {
+        let mut branch_id = {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
             let branch_id = controller
@@ -117,9 +123,10 @@ mod applied_branch {
             branch_id
         };
 
-        {
+        let reference_name = {
             // when fetching remote
-            controller.update_base_branch(*project_id).await.unwrap();
+            let stashed_branches = controller.update_base_branch(*project_id).await.unwrap();
+            assert_eq!(stashed_branches.len(), 1);
 
             // should stash the branch.
 
@@ -130,14 +137,19 @@ mod applied_branch {
             assert!(!branches[0].base_current);
             assert_eq!(branches[0].files.len(), 0);
             assert_eq!(branches[0].commits.len(), 1);
-        }
+
+            stashed_branches[0].clone()
+        };
+
+        let refname = git::Refname::from_str(reference_name.as_str()).unwrap();
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .apply_virtual_branch(*project_id, branch_id)
+            branch_id = controller
+                .create_virtual_branch_from_branch(*project_id, &refname)
                 .await
-                .unwrap();
+                .unwrap()
+                .0;
             let (branches, _) = controller.list_virtual_branches(*project_id).await.unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
