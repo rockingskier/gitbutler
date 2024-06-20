@@ -1,10 +1,10 @@
 <script lang="ts">
-	import SectionCardDisclaimer from './SectionCardDisclaimer.svelte';
+	import SectionCardDisclaimer from '../components/SectionCardDisclaimer.svelte';
+	import Icon from '../shared/Icon.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import Link from '../shared/Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
 	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { slide } from 'svelte/transition';
 
